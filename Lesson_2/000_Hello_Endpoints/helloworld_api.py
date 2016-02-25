@@ -9,7 +9,6 @@ from protorpc import messages
 from protorpc import message_types
 from protorpc import remote
 
-
 # If the request contains path or querystring arguments,
 # you cannot use a simple Message class.
 # Instead, you must use a ResourceContainer class
@@ -18,15 +17,21 @@ REQUEST_CONTAINER = endpoints.ResourceContainer(
     name=messages.StringField(1),
 )
 
+ANOTHER_REQUEST_CONTAINER = endpoints.ResourceContainer(
+  message_types.VoidMessage,
+  name=messages.StringField(1),
+  period=messages.StringField(2)
+)
+
 
 package = 'Hello'
 
-
+# Response class.
 class Hello(messages.Message):
     """String that stores a message."""
     greeting = messages.StringField(1)
 
-
+# Request class.
 @endpoints.api(name='helloworldendpoints', version='v1')
 class HelloWorldApi(remote.Service):
     """Helloworld API v1."""
@@ -42,5 +47,12 @@ class HelloWorldApi(remote.Service):
       greet = "Hello {}".format(request.name)
       return Hello(greeting=greet)
 
+    @endpoints.method(ANOTHER_REQUEST_CONTAINER, Hello,
+      path="greetByPeriod", http_method='GET', name = 'greetByPeriod')
+    def greetByPeriod(self, request):
+      # print 'We are the {} who say "{}!"'.format('knights', 'Ni')
+      # print '{}, {}'.format(request.period, request.name)
+      greet = "Good {}, {}".format(request.period, request.name)
+      return Hello(greeting=greet)
 
 APPLICATION = endpoints.api_server([HelloWorldApi])
