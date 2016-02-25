@@ -32,6 +32,7 @@ from models import ProfileForm
 from models import TeeShirtSize
 
 from settings import WEB_CLIENT_ID
+from utils import getUserId
 
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
@@ -70,19 +71,29 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-        profile = None
+
+        user_id = getUserId(user)
+        print 'user_id', user_id
+        # create a new key of kind Profile from the id
+        p_key = ndb.Key(Profile, user_id)
+
+        # get the entity from datastore by using get() on the key
+        profile = p_key.get()
+
+        # profile = None
         ## step 2: create a new Profile from logged in user data
         ## you can use user.nickname() to get displayName
         ## and user.email() to get mainEmail
         if not profile:
-            profile = Profile(
-                userId = None,
-                key = None,
+            profile = Profile(                
+                key = p_key,
                 displayName = user.nickname(), 
                 mainEmail= user.email(),
                 teeShirtSize = str(TeeShirtSize.NOT_SPECIFIED),
             )
-
+            # save the profile to the datastore    
+            profile.put()
+    
         return profile      # return Profile
 
 
@@ -90,14 +101,20 @@ class ConferenceApi(remote.Service):
         """Get user Profile and return to user, possibly updating it first."""
         # get user Profile
         prof = self._getProfileFromUser()
-
+        print 'in _doProfile...'
         # if saveProfile(), process user-modifyable fields
         if save_request:
             for field in ('displayName', 'teeShirtSize'):
                 if hasattr(save_request, field):
                     val = getattr(save_request, field)
+                    print '#####'
+                    print field, val
+                    print '#####'
                     if val:
                         setattr(prof, field, str(val))
+
+            # put the modified profile to datastore
+            prof.put()
 
         # return ProfileForm
         return self._copyProfileToForm(prof)
