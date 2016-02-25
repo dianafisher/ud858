@@ -78,8 +78,8 @@ class ConferenceApi(remote.Service):
             profile = Profile(
                 userId = None,
                 key = None,
-                displayName = "Test", 
-                mainEmail= None,
+                displayName = user.nickname(), 
+                mainEmail= user.email(),
                 teeShirtSize = str(TeeShirtSize.NOT_SPECIFIED),
             )
 
