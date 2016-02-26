@@ -20,6 +20,11 @@ indexes:
 - kind: Conference
   properties:
   - name: city
+  - name: name
+
+- kind: Conference
+  properties:
+  - name: city
   - name: seatsAvailable
 
 - kind: Conference
