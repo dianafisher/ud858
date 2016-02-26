@@ -50,6 +50,22 @@ DEFAULTS = {
     "topics": [ "Default", "Topic" ],
 }
 
+OPERATORS = {
+            'EQ':   '=',
+            'GT':   '>',
+            'GTEQ': '>=',
+            'LT':   '<',
+            'LTEQ': '<=',
+            'NE':   '!='
+            }
+
+FIELDS =    {
+            'CITY': 'city',
+            'TOPIC': 'topics',
+            'MONTH': 'month',
+            'MAX_ATTENDEES': 'maxAttendees',
+            }
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 @endpoints.api( name='conference',
@@ -238,7 +254,74 @@ class ConferenceApi(remote.Service):
         return ConferenceForms(
             items=[self._copyConferenceToForm(conf, "") \
             for conf in conferences]
-        )        
+        )     
+
+    @endpoints.method(message_types.VoidMessage, ConferenceForms,
+        path='getConferencesCreated',
+        http_method='POST', name='getConferencesCreated')
+    def getConferencesCreated(self, request):
+        """Return conferences created by user."""
+        # make sure user is authed
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # make profile key
+        p_key = ndb.Key(Profile, getUserId(user))
+        # create ancestor query for this user
+        conferences = Conference.query(ancestor=p_key)
+        # get the user profile and display name
+        prof = p_key.get()
+        displayName = getattr(prof, 'displayName')
+        # return set of ConferenceForm objects per Conference
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, displayName) for conf in conferences]
+        )
+
+    @endpoints.method(message_types.VoidMessage, ConferenceForms,
+        path='filterPlayground',
+        http_method='GET', name='filterPlayground')
+    def filterPlayground(self, request):
+        q = Conference.query()
+        # simple filter usage:
+        # q = q.filter(Conference.city == "Paris")
+
+        # advanced filter building and usage
+        # field = "city"
+        # operator = "="
+        # value = "London"
+        # f = ndb.query.FilterNode(field, operator, value)
+        # q = q.filter(f)
+
+        # # TODO
+        # # add 2 filters:
+        # # 1: city equals to London
+        # q = q.filter(Conference.city == "London")
+        # # 2: topic equals "Medical Innovations"
+        # q = q.filter(Conference.topics == "Medical Innovations")
+        # # 3: order by conference name
+        # q = q.order(Conference.name)
+
+        # # f = ndb.query.FilterNode("topics", "=", "Medical Innovations")
+        # # q = q.filter(f)
+
+        # # 4: filter by month
+        # # q = q.filter(Conference.month == 2)
+
+        # # 5: filter for big conferences
+        # q = q.filter(Conference.maxAttendees > 3)
+
+        q = Conference.query().\
+            filter(Conference.city == "London").\
+            filter(Conference.seatsAvailable >= 1).\
+            filter(Conference.seatsAvailable <= 9).\
+            order(Conference.seatsAvailable).\
+            order(Conference.name).\
+            order(Conference.month)
+
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, "") for conf in q]
+        )       
 
 
 # registers API
