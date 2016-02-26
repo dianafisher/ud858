@@ -36,6 +36,9 @@ from utils import getUserId
 
 from models import Conference
 from models import ConferenceForm
+from models import ConferenceForms
+from models import ConferenceQueryForm
+from models import ConferenceQueryForms
 
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
@@ -223,6 +226,19 @@ class ConferenceApi(remote.Service):
     def createConference(self, request):
         """Create new conference."""
         return self._createConferenceObject(request)
+
+    @endpoints.method(ConferenceQueryForms, ConferenceForms,
+            path='queryConferences',
+            http_method='POST',
+            name='queryConferences')
+    def queryConferences(self, request):
+        """Query for conferences."""
+        conferences = Conference.query()
+        # return individual ConferenceForm object per Conference
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, "") \
+            for conf in conferences]
+        )        
 
 
 # registers API
