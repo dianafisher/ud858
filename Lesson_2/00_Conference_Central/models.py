@@ -25,6 +25,20 @@ class Profile(ndb.Model):
     mainEmail = ndb.StringProperty()
     teeShirtSize = ndb.StringProperty(default='NOT_SPECIFIED')
 
+class Conference(ndb.Model):
+    """Conference -- Conference object"""
+    name            = ndb.StringProperty(required=True)
+    description     = ndb.StringProperty()
+    organizerUserId = ndb.StringProperty()
+    topics          = ndb.StringProperty(repeated=True)
+    city            = ndb.StringProperty()
+    startDate       = ndb.DateProperty()
+    month           = ndb.IntegerProperty()
+    endDate         = ndb.DateProperty()
+    maxAttendees    = ndb.IntegerProperty()
+    seatsAvailable  = ndb.IntegerProperty()
+
+# Forms
 
 class ProfileMiniForm(messages.Message):
     """ProfileMiniForm -- update Profile form message"""
@@ -57,3 +71,18 @@ class TeeShirtSize(messages.Enum):
     XXL_W = 13
     XXXL_M = 14
     XXXL_W = 15
+
+class ConferenceForm(messages.Message):
+    """ConferenceForm -- Conference outbound form message"""
+    name            = messages.StringField(1)
+    description     = messages.StringField(2)
+    organizerUserId = messages.StringField(3)
+    topics          = messages.StringField(4, repeated=True)
+    city            = messages.StringField(5)
+    startDate       = messages.StringField(6)
+    month           = messages.IntegerField(7, variant=messages.Variant.INT32)
+    maxAttendees    = messages.IntegerField(8, variant=messages.Variant.INT32)
+    seatsAvailable  = messages.IntegerField(9, variant=messages.Variant.INT32)
+    endDate         = messages.StringField(10)
+    websafeKey      = messages.StringField(11)
+    organizerDisplayName = messages.StringField(12)
