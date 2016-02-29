@@ -34,6 +34,9 @@ handlers:       # static then dynamic
   script: conference.api
   secure: always
 
+- url: /crons/set_announcement
+  script: main.app  
+
 libraries:
 
 - name: endpoints
@@ -42,3 +45,4 @@ libraries:
 # pycrypto library used for OAuth2 (req'd for authenticated APIs)
 - name: pycrypto
   version: latest
+

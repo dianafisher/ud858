@@ -39,3 +39,8 @@ indexes:
   - name: city
   - name: topics
   - name: maxAttendees
+
+- kind: Conference
+  properties:
+  - name: seatsAvailable
+  - name: name
