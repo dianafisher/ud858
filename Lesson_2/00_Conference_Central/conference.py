@@ -49,6 +49,7 @@ from models import SessionForm
 from models import SessionForms
 from models import SessionType
 from models import SessionTypeForm
+from models import SessionSpeakerForm
 
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
@@ -679,8 +680,6 @@ class ConferenceApi(remote.Service):
         wsck = request.websafeConferenceKey
         conf = ndb.Key(urlsafe=wsck).get()
 
-        print request.sessionType
-
         # Make sure the conference exists
         if not conf:
             raise endpoints.NotFoundException(
@@ -692,6 +691,28 @@ class ConferenceApi(remote.Service):
         # Filter by type        
         sessions = sessions.filter(Session.typeOfSession == str(request.sessionType))
         
+        # Return set of SessionForm objects
+        return SessionForms(
+            sessions=[self._copySessionToForm(s) for s in sessions]
+        )
+
+
+    @endpoints.method(
+        request_message=SessionSpeakerForm,
+        response_message=SessionForms,
+        path='conference/sessions/speaker',
+        http_method='GET',
+        name='getSessionsBySpeaker'
+        )
+    def getSessionsBySpeaker(self, request):
+        """Returns all sessions given by a particular speaker, across all conferences"""
+
+        # Create query
+        sessions = Session.query()
+        # Filter by speaker
+        sessions = sessions.filter(Session.speaker == request.speaker)
+
+        # Return set of SessionForm objects
         return SessionForms(
             sessions=[self._copySessionToForm(s) for s in sessions]
         )

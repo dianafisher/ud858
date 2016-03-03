@@ -149,9 +149,13 @@ class SessionType(messages.Enum):
     KEYNOTE = 4
 
 class SessionTypeForm(messages.Message):
-    """SessionTypeForm"""
+    """SessionTypeForm -- Session query by type inbound message"""
     websafeConferenceKey = messages.StringField(1)
     sessionType = messages.EnumField('SessionType', 2)
+
+class SessionSpeakerForm(messages.Message):
+    """SessionSpeakerForm -- Session query by speaker inbound message"""
+    speaker = messages.StringField(1)
 
 
     
