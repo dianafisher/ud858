@@ -46,6 +46,9 @@ from models import BooleanMessage
 from models import ConflictException
 from models import StringMessage
 from models import SessionForm
+from models import SessionForms
+from models import SessionType
+from models import SessionTypeForm
 
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
@@ -79,10 +82,15 @@ FIELDS =    {
 CONF_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeConferenceKey=messages.StringField(1),
-)            
+)         
 
-NEW_SESSION_RESOURCE_CONTAINER = endpoints.ResourceContainer(
-    SessionForm,
+SESSION_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+)   
+
+SESSION_TYPE_GET_REQUEST = endpoints.ResourceContainer(
+    SessionTypeForm,
     websafeConferenceKey=messages.StringField(1),
 )
 
@@ -536,39 +544,52 @@ class ConferenceApi(remote.Service):
     @endpoints.method(
         request_message=SessionForm, 
         response_message=SessionForm,
-        path='conference/{websafeConferenceKey}/session',
+        path='session',
         http_method='POST', 
         name='createSession')
     def createSession(self, request):        
-        return self._createSessionObject(request)
-        # return StringMessage(data='Hey, it worked!')
-
+        return self._createSessionObject(request)        
 
     def _createSessionObject(self, request):
         """Create or update session object. """
-        # user = endpoints.get_current_user()
-        # if not user:
-        #     raise endpoints.UnauthorizedException('Authorization required')
-        # user_id = getUserId(user)
+
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
 
         if not request.name:
-            raise endpoints.BadRequestException("Session 'name' field required")
-
-        # copy SessionForm/ProtoRPC Message into dict
-        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
-
-        print 'data', data
+            raise endpoints.BadRequestException("Session 'name' field required")       
 
         # Fetch the conference from the request
         wsck = request.websafeConferenceKey
         conf = ndb.Key(urlsafe=wsck).get()
 
+        # Make sure the conference exists
         if not conf:
             raise endpoints.NotFoundException(
                 'No conference found with key: \
                 %s' % request.websafeConferenceKey)
 
-        print 'conference', conf.name            
+        print 'conference', conf.name  
+
+        # Make sure the user is owns the conference
+        if user_id != conf.organizerUserId:
+            raise endpoints.ForbiddenException(
+                'Only the owner can add sessions.')          
+
+        # copy SessionForm/ProtoRPC Message into dict
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}        
+
+        print 'data', data            
+
+        if data['typeOfSession']:
+            data['typeOfSession'] = str(data['typeOfSession'])
+        else:
+            data['typeOfSession'] = str(SessionType.NOT_SPECIFIED)
+
+
+        print 'data', data            
 
         # Convert dates from strings to Date objects
         if data['date']:
@@ -607,15 +628,73 @@ class ConferenceApi(remote.Service):
                 # Convert date and time to String
                 if field.name == ('date', 'startTime'):
                     setattr(sessionForm, field.name, str(getattr(session, field.name)))
-
+                elif field.name == 'typeOfSession':
+                    setattr(sessionForm, field.name, getattr(SessionType, getattr(session, field.name)))
+                elif field.name == 'websafeKey':
+                    setattr(sessionForm, field.name, session.key.urlsafe())                    
                 else:
                     setattr(sessionForm, field.name, getattr(session, field.name))
-
-            elif field.name == 'websafeKey':
-                setattr(sessionForm, field.name, session.key.urlsafe())
-
+            
         sessionForm.check_initialized()
         return sessionForm
+
+    @endpoints.method(
+        request_message=SESSION_GET_REQUEST,
+        response_message=SessionForms,
+        path='conference/{websafeConferenceKey}/sessions',
+        http_method='GET',
+        name='getConferenceSessions'
+        )
+    def getConferenceSessions(self, request):
+        """Return all sessions for a given conference"""
+
+
+        # Fetch the conference from the request
+        wsck = request.websafeConferenceKey
+        conf = ndb.Key(urlsafe=wsck).get()
+
+        # Make sure the conference exists
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: \
+                %s' % request.websafeConferenceKey)
+
+        # create ancestor query
+        sessions = Session.query(ancestor=ndb.Key(urlsafe=wsck))
+        return SessionForms(
+            sessions=[self._copySessionToForm(s) for s in sessions]
+        )
+        
+    @endpoints.method(
+        request_message=SessionTypeForm,
+        response_message=SessionForms,
+        path='conference/{websafeConferenceKey}/sessions/type',
+        http_method='GET',
+        name='getConferenceSessionsByType'
+        )
+    def getConferenceSessionsByType(self, request):
+        """Returns session filtered by type for a given conference"""
+
+        # Fetch the conference from the request
+        wsck = request.websafeConferenceKey
+        conf = ndb.Key(urlsafe=wsck).get()
+
+        print request.sessionType
+
+        # Make sure the conference exists
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: \
+                %s' % request.websafeConferenceKey)
+
+        # create ancestor query
+        sessions = Session.query(ancestor=ndb.Key(urlsafe=wsck))            
+        # Filter by type        
+        sessions = sessions.filter(Session.typeOfSession == str(request.sessionType))
+        
+        return SessionForms(
+            sessions=[self._copySessionToForm(s) for s in sessions]
+        )
 
 
 # registers API

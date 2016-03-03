@@ -45,11 +45,11 @@ class Session(ndb.Model):
     highlights = ndb.StringProperty()
     speaker = ndb.StringProperty()
     duration = ndb.IntegerProperty()
-    typeofSession = ndb.StringProperty()
+    typeOfSession = ndb.StringProperty(default='NOT_SPECIFIED')
     date = ndb.DateProperty()
     startTime = ndb.TimeProperty()
 
-# Forms
+# Forms/Messages
 
 class ProfileMiniForm(messages.Message):
     """ProfileMiniForm -- update Profile form message"""
@@ -131,11 +131,27 @@ class SessionForm(messages.Message):
     highlights      = messages.StringField(2)
     speaker         = messages.StringField(3)
     duration        = messages.IntegerField(4, variant=messages.Variant.INT32)
-    typeofSession   = messages.StringField(5)
+    typeOfSession   = messages.EnumField('SessionType', 5)
     date            = messages.StringField(6)
     startTime       = messages.StringField(7)
     websafeConferenceKey= messages.StringField(8)
     websafeKey          = messages.StringField(9)
+
+class SessionForms(messages.Message):
+    """SessionForms -- mutliple Session outbound for message"""
+    sessions = messages.MessageField(SessionForm, 1, repeated=True)
+
+class SessionType(messages.Enum):
+    """SessionType -- session type enumeration value"""
+    NOT_SPECIFIED = 1
+    WORKSHOP = 2
+    LECTURE = 3
+    KEYNOTE = 4
+
+class SessionTypeForm(messages.Message):
+    """SessionTypeForm"""
+    websafeConferenceKey = messages.StringField(1)
+    sessionType = messages.EnumField('SessionType', 2)
 
 
     
