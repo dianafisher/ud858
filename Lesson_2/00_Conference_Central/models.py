@@ -39,6 +39,16 @@ class Conference(ndb.Model):
     maxAttendees    = ndb.IntegerProperty()
     seatsAvailable  = ndb.IntegerProperty()
 
+class Session(ndb.Model):
+    """Session -- Session object"""
+    name = ndb.StringProperty(required=True)
+    highlights = ndb.StringProperty()
+    speaker = ndb.StringProperty()
+    duration = ndb.IntegerProperty()
+    typeofSession = ndb.StringProperty()
+    date = ndb.DateProperty()
+    startTime = ndb.TimeProperty()
+
 # Forms
 
 class ProfileMiniForm(messages.Message):
@@ -114,5 +124,19 @@ class ConflictException(endpoints.ServiceException):
 class StringMessage(messages.Message):
     """StringMessage-- outbound (single) string message"""
     data = messages.StringField(1, required=True)
+
+class SessionForm(messages.Message):
+    """SessionForm -- Session outbound from message"""
+    name            = messages.StringField(1)
+    highlights      = messages.StringField(2)
+    speaker         = messages.StringField(3)
+    duration        = messages.IntegerField(4, variant=messages.Variant.INT32)
+    typeofSession   = messages.StringField(5)
+    date            = messages.StringField(6)
+    startTime       = messages.StringField(7)
+    websafeConferenceKey= messages.StringField(8)
+    websafeKey          = messages.StringField(9)
+
+
     
     

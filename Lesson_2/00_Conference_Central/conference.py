@@ -32,6 +32,7 @@ from models import Profile
 from models import ProfileMiniForm
 from models import ProfileForm
 from models import TeeShirtSize
+from models import Session
 
 from settings import WEB_CLIENT_ID
 from utils import getUserId
@@ -44,6 +45,7 @@ from models import ConferenceQueryForms
 from models import BooleanMessage
 from models import ConflictException
 from models import StringMessage
+from models import SessionForm
 
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
@@ -78,6 +80,11 @@ CONF_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeConferenceKey=messages.StringField(1),
 )            
+
+NEW_SESSION_RESOURCE_CONTAINER = endpoints.ResourceContainer(
+    SessionForm,
+    websafeConferenceKey=messages.StringField(1),
+)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -523,6 +530,92 @@ class ConferenceApi(remote.Service):
         # announcement = ""
         # return StringMessage(data=announcement)
         return StringMessage(data=memcache.get(MEMCACHE_ANNOUNCEMENTS_KEY) or "")
+
+# - - - Session objects - - - - - - - - - - - - - - - - - - -
+
+    @endpoints.method(
+        request_message=SessionForm, 
+        response_message=SessionForm,
+        path='conference/{websafeConferenceKey}/session',
+        http_method='POST', 
+        name='createSession')
+    def createSession(self, request):        
+        return self._createSessionObject(request)
+        # return StringMessage(data='Hey, it worked!')
+
+
+    def _createSessionObject(self, request):
+        """Create or update session object. """
+        # user = endpoints.get_current_user()
+        # if not user:
+        #     raise endpoints.UnauthorizedException('Authorization required')
+        # user_id = getUserId(user)
+
+        if not request.name:
+            raise endpoints.BadRequestException("Session 'name' field required")
+
+        # copy SessionForm/ProtoRPC Message into dict
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+
+        print 'data', data
+
+        # Fetch the conference from the request
+        wsck = request.websafeConferenceKey
+        conf = ndb.Key(urlsafe=wsck).get()
+
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: \
+                %s' % request.websafeConferenceKey)
+
+        print 'conference', conf.name            
+
+        # Convert dates from strings to Date objects
+        if data['date']:
+            data['date'] = datetime.strptime(
+                data['date'][:10], "%Y-%m-%d").date()
+
+        # convert time from strings to Time object
+        if data['startTime']:
+            data['startTime'] = datetime.strptime(
+                data['startTime'][:5], "%H:%M").time()        
+
+        # Make Session Key from Conference ID as p_key
+        p_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+
+        # Allocate new Session ID with p_key as parent
+        s_id = Session.allocate_ids(size=1, parent=p_key)[0]
+
+        s_key = ndb.Key(Session, s_id, parent=p_key)
+        data['key'] = s_key
+
+        del data['websafeConferenceKey']
+        del data['websafeKey']
+
+        # create Session
+        Session(**data).put()        
+
+        return request
+
+    def _copySessionToForm(self, session):
+        """Copy relevant fields from Session to SessionForm"""
+
+        sessionForm = SessionForm()
+        for field in sessionForm.all_fields():
+            if hasattr(session, field.name):
+
+                # Convert date and time to String
+                if field.name == ('date', 'startTime'):
+                    setattr(sessionForm, field.name, str(getattr(session, field.name)))
+
+                else:
+                    setattr(sessionForm, field.name, getattr(session, field.name))
+
+            elif field.name == 'websafeKey':
+                setattr(sessionForm, field.name, session.key.urlsafe())
+
+        sessionForm.check_initialized()
+        return sessionForm
 
 
 # registers API
