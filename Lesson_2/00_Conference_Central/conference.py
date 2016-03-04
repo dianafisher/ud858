@@ -50,6 +50,7 @@ from models import SessionForms
 from models import SessionType
 from models import SessionTypeForm
 from models import SessionSpeakerForm
+from models import SessionCityForm
 
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
@@ -92,7 +93,7 @@ SESSION_GET_REQUEST = endpoints.ResourceContainer(
 
 SESSION_TYPE_GET_REQUEST = endpoints.ResourceContainer(
     SessionTypeForm,
-    websafeConferenceKey=messages.StringField(1),
+    websafeConferenceKey=messages.StringField(1),    
 )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -573,17 +574,17 @@ class ConferenceApi(remote.Service):
                 'No conference found with key: \
                 %s' % request.websafeConferenceKey)
 
-        print 'conference', conf.name  
+        # print 'conference', conf.name  
 
-        # Make sure the user is owns the conference
+        # Make sure the user owns the conference
         if user_id != conf.organizerUserId:
             raise endpoints.ForbiddenException(
-                'Only the owner can add sessions.')          
+                'Only the conference owner can add sessions.')          
 
         # copy SessionForm/ProtoRPC Message into dict
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}        
 
-        print 'data', data            
+        # print 'data', data            
 
         if data['typeOfSession']:
             data['typeOfSession'] = str(data['typeOfSession'])
@@ -591,7 +592,7 @@ class ConferenceApi(remote.Service):
             data['typeOfSession'] = str(SessionType.NOT_SPECIFIED)
 
 
-        print 'data', data            
+        # print 'data', data            
 
         # Convert dates from strings to Date objects
         if data['date']:
@@ -601,7 +602,7 @@ class ConferenceApi(remote.Service):
         # convert time from strings to Time object
         if data['startTime']:            
             if len(data['startTime']) is not 5:
-                raise endpoints.BadRequestException('Time must be HH:MM using 24 hour notation')            
+                raise endpoints.BadRequestException('Start time must be HH:MM using 24 hour notation')            
             data['startTime'] = datetime.strptime(
                 data['startTime'][:5], "%H:%M").time()            
 
@@ -614,6 +615,7 @@ class ConferenceApi(remote.Service):
         s_key = ndb.Key(Session, s_id, parent=p_key)
         data['key'] = s_key
 
+        # Remove items which are not part of the Session object.
         del data['websafeConferenceKey']
         del data['websafeKey']
 
@@ -627,10 +629,9 @@ class ConferenceApi(remote.Service):
 
         sessionForm = SessionForm()
         for field in sessionForm.all_fields():
-            if hasattr(session, field.name):
-
+            if hasattr(session, field.name):                
                 # Convert date and time to String
-                if field.name == ('date', 'startTime'):
+                if field.name.endswith('date') or field.name.endswith('Time'):                    
                     setattr(sessionForm, field.name, str(getattr(session, field.name)))
                 elif field.name == 'typeOfSession':
                     setattr(sessionForm, field.name, getattr(SessionType, getattr(session, field.name)))                           
@@ -670,7 +671,7 @@ class ConferenceApi(remote.Service):
         )
         
     @endpoints.method(
-        request_message=SessionTypeForm,
+        request_message=SESSION_TYPE_GET_REQUEST,
         response_message=SessionForms,
         path='conference/{websafeConferenceKey}/sessions/type',
         http_method='GET',
@@ -799,6 +800,35 @@ class ConferenceApi(remote.Service):
 
         # Return set of SessionForm objects
         return SessionForms(sessions=[self._copySessionToForm(s) for s in sessions])
+
+# - - - Additional Queries - - - - - - - - - - - - - - - - - - - - 
+
+    @endpoints.method(
+        request_message=SessionCityForm,
+        response_message=SessionForms,
+        path='conference/sessions/city',
+        http_method='GET',
+        name='getSessionsByCity'
+        )
+    def getSessionByCity(self, request):
+        """Returns all sessions for a given city, across all conferences"""
+        # Create a list to hold all of the sessions found.
+        results = []
+        # Create conference query
+        conferences = Conference.query()
+        # Filter conferences by city
+        conferences = conferences.filter(Conference.city == request.city)
+        # Create ancestor query to find session for each conference.
+        for conf in conferences:                        
+            # Create an ancestor query to get the sessions for this conference
+            sessions = Session.query(ancestor=conf.key)
+            # Add each session in the query to the results list
+            for s in sessions:
+                # print s.name
+                results.append(s)                                    
+                            
+        # Return set of SessionForm objects
+        return SessionForms(sessions=[self._copySessionToForm(s) for s in results])
 
 # registers API
 api = endpoints.api_server([ConferenceApi]) 

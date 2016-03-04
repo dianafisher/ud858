@@ -157,6 +157,10 @@ class SessionSpeakerForm(messages.Message):
     """SessionSpeakerForm -- Session query by speaker inbound message"""
     speaker = messages.StringField(1)
 
+class SessionCityForm(messages.Message):
+    """SessionCityForm -- Session query by city inbound message"""
+    city = messages.StringField(1)    
+
 
     
     
