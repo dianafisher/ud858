@@ -599,9 +599,11 @@ class ConferenceApi(remote.Service):
                 data['date'][:10], "%Y-%m-%d").date()
 
         # convert time from strings to Time object
-        if data['startTime']:
+        if data['startTime']:            
+            if len(data['startTime']) is not 5:
+                raise endpoints.BadRequestException('Time must be HH:MM using 24 hour notation')            
             data['startTime'] = datetime.strptime(
-                data['startTime'][:5], "%H:%M").time()        
+                data['startTime'][:5], "%H:%M").time()            
 
         # Make Session Key from Conference ID as p_key
         p_key = ndb.Key(urlsafe=request.websafeConferenceKey)
@@ -743,7 +745,7 @@ class ConferenceApi(remote.Service):
         return self._addToWishlist(request, add=False)
 
 
-    @ndb.transactional(xg=True)
+    @ndb.transactional()
     def _addToWishlist(self, request, add=True):
         """Add/remove sessions from user wishlist"""
         retval = None
@@ -788,7 +790,8 @@ class ConferenceApi(remote.Service):
         )
     def getSessionsInWishlist(self, request):
         """Get list of sessions in a conference that the user has in their wishlist"""
-        prof = self._getProfileFromUser() # get user Profile
+        # Get user Profile
+        prof = self._getProfileFromUser()
         # Get list of session keys in the wishlist
         session_keys = [ndb.Key(urlsafe=wssk) for wssk in prof.sessionKeysWishlist]
         # Get the Session entities from the Datastore
