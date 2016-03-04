@@ -13,7 +13,7 @@ created by wesc on 2014 apr 21
 __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
-from datetime import datetime
+import datetime
 import json
 import os
 import time
@@ -447,7 +447,8 @@ class ConferenceApi(remote.Service):
 
 
 # - - - Registration - - - - - - - - - - - - - - - - - - - -
-    # @ndb.transactional(xg=True)
+
+    @ndb.transactional(xg=True)
     def _conferenceRegistration(self, request, reg=True):
         """Register or unregister user for selected conference."""
         retval = None
@@ -596,8 +597,11 @@ class ConferenceApi(remote.Service):
 
         # Convert dates from strings to Date objects
         if data['date']:
-            data['date'] = datetime.strptime(
-                data['date'][:10], "%Y-%m-%d").date()
+            try:
+                data['date'] = datetime.strptime(
+                    data['date'][:10], "%Y-%m-%d").date()
+            except ValueError:
+                raise endpoints.BadRequestException('Date must have format YYYY-MM-DD')
 
         # convert time from strings to Time object
         if data['startTime']:            
@@ -829,6 +833,67 @@ class ConferenceApi(remote.Service):
                             
         # Return set of SessionForm objects
         return SessionForms(sessions=[self._copySessionToForm(s) for s in results])
+
+    @endpoints.method(
+        request_message=CONF_GET_REQUEST,
+        response_message=SessionForms,
+        path='conference/{websafeConferenceKey}/sessions/ordered',
+        http_method='GET',
+        name='getConferenceSessionsOrdered'
+        )
+    def getConferenceSessionsOrderedByDate(self, request):
+        """Returns sessions of a conference ordered by session date and time"""
+        # Fetch the conference from the request
+        wsck = request.websafeConferenceKey
+        conf = ndb.Key(urlsafe=wsck).get()
+
+        # Make sure the conference exists
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: \
+                %s' % request.websafeConferenceKey)
+        
+        # create ancestor query
+        sessions = Session.query(ancestor=ndb.Key(urlsafe=wsck))                 
+        # First, order by date
+        sessions = sessions.order(Session.date)
+        # then order by startTime
+        sessions = sessions.order(Session.startTime)
+
+        # Return set of SessionForm objects
+        return SessionForms(
+            sessions=[self._copySessionToForm(s) for s in sessions]
+        )
+
+    @endpoints.method(
+        request_message=message_types.VoidMessage,
+        response_message=SessionForms,
+        path='conference/sessions/nonworkshops',
+        http_method='GET',
+        name='getNonWorkshopSessionsBefore7'
+        )
+    def getNonWorkshopSessionsBefore7(self, request):
+        """Returns all sessions which are not of type WORKSHOP and have a startTime before 7PM"""
+        # Create sessions query
+        sessions = Session.query()
+        # Filter by type (any type except WORKSHOP)
+        # Can only use the inequality operation on one field per query.  So we cannot use both
+        # != for session type and < for startTime.  Use ndb.OR instead for the session type filter.
+
+        sessions = sessions.filter(ndb.OR(
+            Session.typeOfSession == str(SessionType.KEYNOTE),
+            Session.typeOfSession == str(SessionType.LECTURE),
+            Session.typeOfSession == str(SessionType.NOT_SPECIFIED)))
+        
+        # Filter by time (any time before 19:00)
+        seven = datetime.time(19, 00)
+        sessions = sessions.filter(Session.startTime < seven)
+
+        # Return set of SessionForm objects
+        return SessionForms(
+            sessions=[self._copySessionToForm(s) for s in sessions]
+        )
+
 
 # registers API
 api = endpoints.api_server([ConferenceApi]) 
