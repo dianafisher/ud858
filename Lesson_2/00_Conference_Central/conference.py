@@ -87,7 +87,7 @@ CONF_GET_REQUEST = endpoints.ResourceContainer(
 
 SESSION_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
-    websafeConferenceKey=messages.StringField(1),
+    websafeSessionKey=messages.StringField(1),
 )   
 
 SESSION_TYPE_GET_REQUEST = endpoints.ResourceContainer(
@@ -126,12 +126,13 @@ class ConferenceApi(remote.Service):
         ## TODO 2
         ## step 1: make sure user is authed
         ## uncomment the following lines:
+        # Use endpoints AUTH to get the current user.
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
 
         user_id = getUserId(user)
-        print 'user_id', user_id
+        
         # create a new key of kind Profile from the id
         p_key = ndb.Key(Profile, user_id)
 
@@ -630,17 +631,17 @@ class ConferenceApi(remote.Service):
                 if field.name == ('date', 'startTime'):
                     setattr(sessionForm, field.name, str(getattr(session, field.name)))
                 elif field.name == 'typeOfSession':
-                    setattr(sessionForm, field.name, getattr(SessionType, getattr(session, field.name)))
-                elif field.name == 'websafeKey':
-                    setattr(sessionForm, field.name, session.key.urlsafe())                    
+                    setattr(sessionForm, field.name, getattr(SessionType, getattr(session, field.name)))                           
                 else:
-                    setattr(sessionForm, field.name, getattr(session, field.name))
+                    setattr(sessionForm, field.name, getattr(session, field.name))            
+            elif field.name == 'websafeKey':
+                    setattr(sessionForm, field.name, session.key.urlsafe())                             
             
         sessionForm.check_initialized()
         return sessionForm
 
     @endpoints.method(
-        request_message=SESSION_GET_REQUEST,
+        request_message=CONF_GET_REQUEST,
         response_message=SessionForms,
         path='conference/{websafeConferenceKey}/sessions',
         http_method='GET',
@@ -717,6 +718,66 @@ class ConferenceApi(remote.Service):
             sessions=[self._copySessionToForm(s) for s in sessions]
         )
 
+# - - - Wishlist - - - - - - - - - - - - - - - - - - - -        
+
+    @endpoints.method(
+        request_message=SESSION_GET_REQUEST,
+        response_message=BooleanMessage,
+        path='conference/session/{websafeSessionKey}/wishlist',
+        http_method='POST',
+        name='addSessionToWishlist'
+        )
+    def addSessionToWishList(self, request):
+        """Add session to user's wishlist"""
+        return self._addToWishlist(request)
+
+    @endpoints.method(
+        request_message=SESSION_GET_REQUEST,
+        response_message=BooleanMessage,
+        path='conference/session/{websafeSessionKey}/wishlist',
+        http_method='DELETE',
+        name='removeSessionFromWishlist'
+        )
+    def removeSessionFromWishlist(self, request):
+        """Remove session from user's wishlist"""
+        return self._addToWishlist(request, add=False)
+
+
+    @ndb.transactional(xg=True)
+    def _addToWishlist(self, request, add=True):
+        """Add/remove sessions from user wishlist"""
+        retval = None
+        prof = self._getProfileFromUser() # get user Profile
+
+        wssk = request.websafeSessionKey
+        session = ndb.Key(urlsafe=wssk).get()
+        if not session:
+            raise endpoints.NotFoundException(
+                'No session found with key: %s' % wssk)
+
+        # Add to wishlist
+        if add:
+            # Check if user already added session to wishlist
+            if wssk in prof.sessionKeysWishlist:
+                raise ConflictException(
+                    'You have already added this session to your wishlist')
+
+            # Add session to user wishlist
+            prof.sessionKeysWishlist.append(wssk)
+            retval = True
+
+        # Remove from wishlist
+        else:
+            if wssk in prof.sessionKeysWishlist:
+                prof.sessionKeysWishlist.remove(wssk)
+                retval = True
+            else:
+                retval = False
+
+        # Write the profile back to the datastore.
+        prof.put()
+
+        return BooleanMessage(data=retval)
 
 # registers API
 api = endpoints.api_server([ConferenceApi]) 

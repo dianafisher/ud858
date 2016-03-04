@@ -19,12 +19,12 @@ from google.appengine.ext import ndb
 
 
 class Profile(ndb.Model):
-    """Profile -- User profile object"""
-    userId = ndb.StringProperty()
+    """Profile -- User profile object"""    
     displayName = ndb.StringProperty()
     mainEmail = ndb.StringProperty()
     teeShirtSize = ndb.StringProperty(default='NOT_SPECIFIED')    
     conferenceKeysToAttend = ndb.StringProperty(repeated=True)
+    sessionKeysWishlist = ndb.StringProperty(repeated=True)
 
 class Conference(ndb.Model):
     """Conference -- Conference object"""
