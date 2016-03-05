@@ -13,7 +13,9 @@ created by wesc on 2014 apr 21
 __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
-import datetime
+from datetime import datetime
+import datetime as dt
+
 import json
 import os
 import time
@@ -586,14 +588,18 @@ class ConferenceApi(remote.Service):
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}        
 
         # print 'data', data            
-
+        # Default session type to NOT_SPECIFIED if no type was provided.
         if data['typeOfSession']:
             data['typeOfSession'] = str(data['typeOfSession'])
         else:
             data['typeOfSession'] = str(SessionType.NOT_SPECIFIED)
 
-
-        # print 'data', data            
+        # Check if the speaker is a speaker in other sessions at this conference.
+        # If yes, then this speaker a 'featured speaker'
+        speaker = data['speaker']
+        isFeaturedSpeaker = self.isSpeakerForAnotherSessionAtConference(speaker, wsck)
+        print 'isFeaturedSpeaker:', isFeaturedSpeaker
+                
 
         # Convert dates from strings to Date objects
         if data['date']:
@@ -805,7 +811,7 @@ class ConferenceApi(remote.Service):
         # Return set of SessionForm objects
         return SessionForms(sessions=[self._copySessionToForm(s) for s in sessions])
 
-# - - - Additional Queries - - - - - - - - - - - - - - - - - - - - 
+# - - - Additional Session Queries - - - - - - - - - - - - - - - - - - - - 
 
     @endpoints.method(
         request_message=SessionCityForm,
@@ -886,13 +892,24 @@ class ConferenceApi(remote.Service):
             Session.typeOfSession == str(SessionType.NOT_SPECIFIED)))
         
         # Filter by time (any time before 19:00)
-        seven = datetime.time(19, 00)
+        seven = dt.time(19, 00)
         sessions = sessions.filter(Session.startTime < seven)
 
         # Return set of SessionForm objects
         return SessionForms(
             sessions=[self._copySessionToForm(s) for s in sessions]
         )
+
+    def isSpeakerForAnotherSessionAtConference(self, speaker, wsck):
+        """Checks if given speaker is already a speaker in another session at a conference"""
+        # Create an ancestor query to get the sessions for this conference
+        sessions = Session.query(ancestor=ndb.Key(urlsafe=wsck))
+        # Filter the sessions by speaker
+        sessions = sessions.filter(Session.speaker == speaker)
+        print sessions.count()
+        # If there are sessions at this conference with this speaker, return True
+        return (sessions.count() > 0)
+
 
 
 # registers API
