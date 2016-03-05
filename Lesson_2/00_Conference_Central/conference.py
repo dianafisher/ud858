@@ -57,6 +57,7 @@ from models import SessionCityForm
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
 MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT_ANNOUNCEMENTS"
+MEMCACHE_FEATURED_SPEAKER_KEY = "FEATURED_SPEAKER"
 ANNOUNCEMENT_TPL = ('Last chance to attend! The following conferences '
                     'are nearly sold out: %s')
 
@@ -593,13 +594,7 @@ class ConferenceApi(remote.Service):
             data['typeOfSession'] = str(data['typeOfSession'])
         else:
             data['typeOfSession'] = str(SessionType.NOT_SPECIFIED)
-
-        # Check if the speaker is a speaker in other sessions at this conference.
-        # If yes, then this speaker a 'featured speaker'
-        speaker = data['speaker']
-        isFeaturedSpeaker = self.isSpeakerForAnotherSessionAtConference(speaker, wsck)
-        print 'isFeaturedSpeaker:', isFeaturedSpeaker
-                
+         
 
         # Convert dates from strings to Date objects
         if data['date']:
@@ -628,9 +623,17 @@ class ConferenceApi(remote.Service):
         # Remove items which are not part of the Session object.
         del data['websafeConferenceKey']
         del data['websafeKey']
-
+        
         # create Session
         Session(**data).put()        
+
+        # Get the speaker for the new session
+        speaker = data['speaker']
+        # Add speaker to memcache to support Featured Speaker.
+        taskqueue.add(params={
+            "speaker": speaker,
+            "websafeConferenceKey": wsck
+            }, url="/tasks/set_featured_speaker")
 
         return request
 
@@ -900,15 +903,18 @@ class ConferenceApi(remote.Service):
             sessions=[self._copySessionToForm(s) for s in sessions]
         )
 
-    def isSpeakerForAnotherSessionAtConference(self, speaker, wsck):
-        """Checks if given speaker is already a speaker in another session at a conference"""
-        # Create an ancestor query to get the sessions for this conference
-        sessions = Session.query(ancestor=ndb.Key(urlsafe=wsck))
-        # Filter the sessions by speaker
-        sessions = sessions.filter(Session.speaker == speaker)
-        print sessions.count()
-        # If there are sessions at this conference with this speaker, return True
-        return (sessions.count() > 0)
+# - - - Featured Speaker - - - - - - - - - - - - - - - - - - - -         
+
+    @endpoints.method(
+        request_message=message_types.VoidMessage,
+        response_message=StringMessage,
+        path='featuredSpeakers',
+        http_method='GET',
+        name='getFeaturedSpeaker'        
+        )
+    def getFeaturedSpeaker(self, request):
+        """Returns Featured Speaker from memcache."""
+        return StringMessage(data=memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY) or "")
 
 
 

@@ -38,7 +38,10 @@ handlers:       # static then dynamic
   script: main.app
 
 - url: /tasks/send_confirmation_email
-  script: main.app    
+  script: main.app 
+
+- url: /tasks/set_featured_speaker
+  script: main.app   
 
 libraries:
 
