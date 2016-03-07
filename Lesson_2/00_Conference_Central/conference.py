@@ -959,9 +959,7 @@ class ConferenceApi(remote.Service):
     def getSpeakers(self, request):
         """Returns list of speakers"""
         speakers = Speaker.query()
-        print speakers
-        for s in speakers:
-            print s.name
+        
         # Return set of SpeakerForm objects
         return SpeakerForms(
             speakers=[self._copySpeakerToForm(s) for s in speakers]
@@ -970,9 +968,8 @@ class ConferenceApi(remote.Service):
     def _copySpeakerToForm(self, speaker):
         """Copy relevant fields from Speaker to SpeakerForm"""
         sf = SpeakerForm()
-        print 'speaker form created'
-        for field in sf.all_fields():
-            print field.name
+        
+        for field in sf.all_fields():            
             if hasattr(speaker, field.name):
                 setattr(sf, field.name, getattr(speaker, field.name))
 
