@@ -32,6 +32,8 @@ class SetFeaturedSpeakerHandler(webapp2.RequestHandler):
             announcement = ""
             memcache.delete('FEATURED_SPEAKER')
 
+        self.response.set_status(204)
+
 
 class SetAnnouncementHandler(webapp2.RequestHandler):
     def get(self):

@@ -53,6 +53,9 @@ from models import SessionType
 from models import SessionTypeForm
 from models import SessionSpeakerForm
 from models import SessionCityForm
+from models import Speaker
+from models import SpeakerForm
+from models import SpeakerForms
 
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
@@ -916,6 +919,65 @@ class ConferenceApi(remote.Service):
         """Returns Featured Speaker from memcache."""
         return StringMessage(data=memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY) or "")
 
+# - - - Speakers - - - - - - - - - - - - - - - - - - - -
+
+    @endpoints.method(
+        request_message=SpeakerForm,
+        response_message=SpeakerForm,
+        path='speaker',
+        http_method='POST',
+        name='createSpeaker'
+        )
+    def createSpeaker(self, request):
+        """Create new speaker."""
+        return self._createSpeakerObject(request)
+
+    def _createSpeakerObject(self, request):
+        """Create speaker object"""
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        if not request.name:
+            raise endpoints.BadRequestException("Speaker 'name' field required")
+
+         # copy SpeakerForm/ProtoRPC Message into dict
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+
+        s_key = Speaker(**data).put()        
+
+        return request
+
+    @endpoints.method(
+        request_message=message_types.VoidMessage,
+        response_message=SpeakerForms,
+        path='speakers',
+        http_method='GET',
+        name='getSpeakers'
+        )
+    def getSpeakers(self, request):
+        """Returns list of speakers"""
+        speakers = Speaker.query()
+        print speakers
+        for s in speakers:
+            print s.name
+        # Return set of SpeakerForm objects
+        return SpeakerForms(
+            speakers=[self._copySpeakerToForm(s) for s in speakers]
+        )
+
+    def _copySpeakerToForm(self, speaker):
+        """Copy relevant fields from Speaker to SpeakerForm"""
+        sf = SpeakerForm()
+        print 'speaker form created'
+        for field in sf.all_fields():
+            print field.name
+            if hasattr(speaker, field.name):
+                setattr(sf, field.name, getattr(speaker, field.name))
+
+        sf.check_initialized()
+        return sf
 
 
 # registers API

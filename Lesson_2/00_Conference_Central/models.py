@@ -49,6 +49,12 @@ class Session(ndb.Model):
     date = ndb.DateProperty()
     startTime = ndb.TimeProperty()
 
+class Speaker(ndb.Model):
+    """Speaker -- Speaker object"""
+    name = ndb.StringProperty(required=True)
+    organization = ndb.StringProperty()
+    email = ndb.StringProperty()
+
 # Forms/Messages
 
 class ProfileMiniForm(messages.Message):
@@ -135,7 +141,7 @@ class SessionForm(messages.Message):
     date            = messages.StringField(6)
     startTime       = messages.StringField(7)
     websafeConferenceKey= messages.StringField(8)
-    websafeKey          = messages.StringField(9)    
+    websafeKey          = messages.StringField(9)
 
 class SessionForms(messages.Message):
     """SessionForms -- mutliple Session outbound for message"""
@@ -161,6 +167,15 @@ class SessionCityForm(messages.Message):
     """SessionCityForm -- Session query by city inbound message"""
     city = messages.StringField(1)    
 
+class SpeakerForm(messages.Message):
+    """SpeakerForm -- Speaker outbound form message"""
+    name = messages.StringField(1)
+    organization = messages.StringField(2)
+    email = messages.StringField(3)
+
+class SpeakerForms(messages.Message):
+    """SpeakerForms -- multiple Speaker outbound message"""
+    speakers = messages.MessageField(SpeakerForm, 1, repeated=True)
 
     
     
