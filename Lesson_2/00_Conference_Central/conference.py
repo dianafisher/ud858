@@ -102,6 +102,11 @@ SESSION_TYPE_GET_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),    
 )
 
+SESSION_CREATE_REQUEST = endpoints.ResourceContainer(
+    SessionForm,
+    websafeConferenceKey=messages.StringField(1),    
+)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 @endpoints.api( name='conference',
@@ -552,9 +557,9 @@ class ConferenceApi(remote.Service):
 # - - - Session objects - - - - - - - - - - - - - - - - - - -
 
     @endpoints.method(
-        request_message=SessionForm, 
+        request_message=SESSION_CREATE_REQUEST, 
         response_message=SessionForm,
-        path='session',
+        path='conference/{websafeConferenceKey}/session/create',
         http_method='POST', 
         name='createSession')
     def createSession(self, request):        
@@ -628,7 +633,8 @@ class ConferenceApi(remote.Service):
         del data['websafeKey']
         
         # create Session
-        Session(**data).put()        
+        session = Session(**data)
+        session.put()        
 
         # Get the speaker for the new session
         speaker = data['speaker']
@@ -638,7 +644,7 @@ class ConferenceApi(remote.Service):
             "websafeConferenceKey": wsck
             }, url="/tasks/set_featured_speaker")
 
-        return request
+        return self._copySessionToForm(session)
 
     def _copySessionToForm(self, session):
         """Copy relevant fields from Session to SessionForm"""
